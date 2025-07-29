@@ -33,7 +33,7 @@ jobs:
           OPEN_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | .security_vulnerability.severity' | wc -l)
           
           # Get alert details (first 3 alerts) with proper formatting
-          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3 | tr '\n' ' ')
+          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3 | sed 's/$/\\n/' | tr -d '\n')
           
           echo "open-alerts-count=$OPEN_ALERTS" >> $GITHUB_OUTPUT
           echo "alert-details<<EOF" >> $GITHUB_OUTPUT
@@ -77,7 +77,8 @@ jobs:
             ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '• *CVSS Score:* Not available' }}
             • *Open Dependabot Alerts in Repo:* ${{ steps.security-alerts.outputs.open-alerts-count }}
             
-            ${{ steps.security-alerts.outputs.open-alerts-count != '0' && format('*Active Alerts:*\n{0}', steps.security-alerts.outputs.alert-details) || '' }}
+            ${{ steps.security-alerts.outputs.open-alerts-count != '0' && '• *Active Alerts:*' || '' }}
+            ${{ steps.security-alerts.outputs.alert-details }}
             
             *📈 Compatibility:*
             ${{ steps.dependabot-metadata.outputs.compatibility-score && steps.dependabot-metadata.outputs.compatibility-score != '0' && format('• *Compatibility Score:* {0}', steps.dependabot-metadata.outputs.compatibility-score) || '• *Compatibility Score:* Not available' }}
