@@ -44,18 +44,18 @@ jobs:
             • *Directory:* ${{ steps.dependabot-metadata.outputs.directory }}
             • *Target Branch:* ${{ steps.dependabot-metadata.outputs.target-branch }}
             
-            *🔄 Version Changes:*
-            ${{ steps.dependabot-metadata.outputs.previous-version && format('• *From:* {0}', steps.dependabot-metadata.outputs.previous-version) || '' }}
-            ${{ steps.dependabot-metadata.outputs.new-version && format('• *To:* {0}', steps.dependabot-metadata.outputs.new-version) || '' }}
+            *�� Version Changes:*
+            • *From:* ${{ steps.dependabot-metadata.outputs.previous-version || 'N/A' }}
+            • *To:* ${{ steps.dependabot-metadata.outputs.new-version || 'N/A' }}
             
             *🛡️ Security Information:*
             ${{ steps.dependabot-metadata.outputs.alert-state == 'OPEN' && '🚨 *SECURITY ALERT DETECTED*' || '🛡️ *Security vulnerability fix*' }}
-            ${{ steps.dependabot-metadata.outputs.alert-state && format('• *Alert State:* {0}', steps.dependabot-metadata.outputs.alert-state) || '' }}
-            ${{ steps.dependabot-metadata.outputs.ghsa-id && format('• *GHSA ID:* {0}', steps.dependabot-metadata.outputs.ghsa-id) || '' }}
-            ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '' }}
+            ${{ steps.dependabot-metadata.outputs.alert-state && format('• *Alert State:* {0}', steps.dependabot-metadata.outputs.alert-state) || '• *Alert State:* No direct security alert' }}
+            ${{ steps.dependabot-metadata.outputs.ghsa-id && format('• *GHSA ID:* {0}', steps.dependabot-metadata.outputs.ghsa-id) || '• *GHSA ID:* Not available' }}
+            ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '• *CVSS Score:* Not available' }}
             
             *📈 Compatibility:*
-            ${{ steps.dependabot-metadata.outputs.compatibility-score && steps.dependabot-metadata.outputs.compatibility-score != '0' && format('• *Compatibility Score:* {0}', steps.dependabot-metadata.outputs.compatibility-score) || '' }}
+            ${{ steps.dependabot-metadata.outputs.compatibility-score && steps.dependabot-metadata.outputs.compatibility-score != '0' && format('• *Compatibility Score:* {0}', steps.dependabot-metadata.outputs.compatibility-score) || '• *Compatibility Score:* Not available' }}
             
             *📋 Summary:*
             Updates ${{ steps.dependabot-metadata.outputs.dependency-names }} to fix security vulnerabilities and improve dependency health.
