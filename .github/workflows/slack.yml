@@ -22,6 +22,28 @@ jobs:
           alert-lookup: true
           compat-lookup: true
           
+      - name: Get repository security alerts
+        id: security-alerts
+        run: |
+          # Get all security alerts for this repository
+          ALERTS_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
+            "https://api.github.com/repos/${{ github.repository }}/vulnerability-alerts")
+          
+          # Count open alerts
+          OPEN_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | .security_vulnerability.severity' | wc -l)
+          
+          # Get alert details (first 3 alerts)
+          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3)
+          
+          echo "open-alerts-count=$OPEN_ALERTS" >> $GITHUB_OUTPUT
+          echo "alert-details<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALERT_DETAILS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "Found $OPEN_ALERTS open security alerts"
+          echo "Alert details:"
+          echo "$ALERT_DETAILS"
+          
       - name: Notify Slack about Dependabot PR
         uses: 8398a7/action-slack@v3
         with:
@@ -44,7 +66,7 @@ jobs:
             • *Directory:* ${{ steps.dependabot-metadata.outputs.directory }}
             • *Target Branch:* ${{ steps.dependabot-metadata.outputs.target-branch }}
             
-            *�� Version Changes:*
+            * Version Changes:*
             • *From:* ${{ steps.dependabot-metadata.outputs.previous-version || 'N/A' }}
             • *To:* ${{ steps.dependabot-metadata.outputs.new-version || 'N/A' }}
             
@@ -53,6 +75,9 @@ jobs:
             ${{ steps.dependabot-metadata.outputs.alert-state && format('• *Alert State:* {0}', steps.dependabot-metadata.outputs.alert-state) || '• *Alert State:* No direct security alert' }}
             ${{ steps.dependabot-metadata.outputs.ghsa-id && format('• *GHSA ID:* {0}', steps.dependabot-metadata.outputs.ghsa-id) || '• *GHSA ID:* Not available' }}
             ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '• *CVSS Score:* Not available' }}
+            • *Open Security Alerts in Repo:* ${{ steps.security-alerts.outputs.open-alerts-count }}
+            
+            ${{ steps.security-alerts.outputs.open-alerts-count != '0' && format('*Active Alerts:*\n{0}', steps.security-alerts.outputs.alert-details) || '' }}
             
             *📈 Compatibility:*
             ${{ steps.dependabot-metadata.outputs.compatibility-score && steps.dependabot-metadata.outputs.compatibility-score != '0' && format('• *Compatibility Score:* {0}', steps.dependabot-metadata.outputs.compatibility-score) || '• *Compatibility Score:* Not available' }}
