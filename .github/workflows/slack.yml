@@ -44,22 +44,6 @@ jobs:
           echo "Alert details:"
           echo "$ALERT_DETAILS"
           
-      - name: Get dependency versions
-        id: dependency-versions
-        run: |
-          # Get the full dependency information
-          DEPS_JSON='${{ steps.dependabot-metadata.outputs.updated-dependencies-json }}'
-          
-          # Extract version information for all dependencies
-          VERSION_INFO=$(echo "$DEPS_JSON" | jq -r '.[] | "• \(.dependencyName): \(.prevVersion) → \(.newVersion)"' 2>/dev/null || echo "• Version info not available")
-          
-          echo "version-info<<EOF" >> $GITHUB_OUTPUT
-          echo "$VERSION_INFO" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "Version information:"
-          echo "$VERSION_INFO"
-          
       - name: Notify Slack about Dependabot PR
         uses: 8398a7/action-slack@v3
         with:
@@ -83,7 +67,8 @@ jobs:
             • *Target Branch:* ${{ steps.dependabot-metadata.outputs.target-branch }}
             
             * Version Changes:*
-            ${{ steps.dependency-versions.outputs.version-info != '• Version info not available' && steps.dependency-versions.outputs.version-info || '• *Multiple dependencies updated*\n• *Check PR description for version details*' }}
+            • *From:* ${{ steps.dependabot-metadata.outputs.previous-version || 'N/A' }}
+            • *To:* ${{ steps.dependabot-metadata.outputs.new-version || 'N/A' }}
             
             *🛡️ Security Information:*
             ${{ steps.dependabot-metadata.outputs.alert-state == 'OPEN' && '🚨 *SECURITY ALERT DETECTED*' || '🛡️ *Security vulnerability fix*' }}
