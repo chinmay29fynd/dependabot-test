@@ -10,6 +10,6 @@
     "dependencies": {
       "lodash": "4.17.15",
       "express": "4.17.1",
-      "minimist": "0.0.8"
+      "minimist": "1.2.6"
     }
   }
