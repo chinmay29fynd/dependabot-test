@@ -32,8 +32,8 @@ jobs:
           # Count open alerts
           OPEN_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | .security_vulnerability.severity' | wc -l)
           
-          # Get alert details (first 3 alerts)
-          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3)
+          # Get alert details (first 3 alerts) with proper formatting
+          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3 | tr '\n' ' ')
           
           echo "open-alerts-count=$OPEN_ALERTS" >> $GITHUB_OUTPUT
           echo "alert-details<<EOF" >> $GITHUB_OUTPUT
