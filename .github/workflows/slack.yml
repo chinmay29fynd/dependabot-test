@@ -22,12 +22,12 @@ jobs:
           alert-lookup: true
           compat-lookup: true
           
-      - name: Get repository security alerts
+      - name: Get repository Dependabot alerts
         id: security-alerts
         run: |
-          # Get all security alerts for this repository
+          # Get all Dependabot alerts for this repository
           ALERTS_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
-            "https://api.github.com/repos/${{ github.repository }}/vulnerability-alerts")
+            "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
           
           # Count open alerts
           OPEN_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | .security_vulnerability.severity' | wc -l)
@@ -40,7 +40,7 @@ jobs:
           echo "$ALERT_DETAILS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
-          echo "Found $OPEN_ALERTS open security alerts"
+          echo "Found $OPEN_ALERTS open Dependabot alerts"
           echo "Alert details:"
           echo "$ALERT_DETAILS"
           
@@ -75,7 +75,7 @@ jobs:
             ${{ steps.dependabot-metadata.outputs.alert-state && format('• *Alert State:* {0}', steps.dependabot-metadata.outputs.alert-state) || '• *Alert State:* No direct security alert' }}
             ${{ steps.dependabot-metadata.outputs.ghsa-id && format('• *GHSA ID:* {0}', steps.dependabot-metadata.outputs.ghsa-id) || '• *GHSA ID:* Not available' }}
             ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '• *CVSS Score:* Not available' }}
-            • *Open Security Alerts in Repo:* ${{ steps.security-alerts.outputs.open-alerts-count }}
+            • *Open Dependabot Alerts in Repo:* ${{ steps.security-alerts.outputs.open-alerts-count }}
             
             ${{ steps.security-alerts.outputs.open-alerts-count != '0' && format('*Active Alerts:*\n{0}', steps.security-alerts.outputs.alert-details) || '' }}
             
