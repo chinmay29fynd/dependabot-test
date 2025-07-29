@@ -44,6 +44,22 @@ jobs:
           echo "Alert details:"
           echo "$ALERT_DETAILS"
           
+      - name: Get dependency versions
+        id: dependency-versions
+        run: |
+          # Get the full dependency information
+          DEPS_JSON='${{ steps.dependabot-metadata.outputs.updated-dependencies-json }}'
+          
+          # Extract version information for all dependencies
+          VERSION_INFO=$(echo "$DEPS_JSON" | jq -r '.[] | "• \(.name): \(.previous-version) → \(.new-version)"' 2>/dev/null || echo "• Version info not available")
+          
+          echo "version-info<<EOF" >> $GITHUB_OUTPUT
+          echo "$VERSION_INFO" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "Version information:"
+          echo "$VERSION_INFO"
+          
       - name: Notify Slack about Dependabot PR
         uses: 8398a7/action-slack@v3
         with:
