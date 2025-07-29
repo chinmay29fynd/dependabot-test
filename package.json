@@ -1,0 +1,15 @@
+{
+    "name": "dependabot-test",
+    "version": "1.0.0",
+    "description": "Test repo for Dependabot vulnerability scanning",
+    "main": "index.js",
+    "scripts": {
+      "start": "node index.js",
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+      "lodash": "4.17.15",
+      "express": "4.17.1",
+      "minimist": "0.0.8"
+    }
+  }

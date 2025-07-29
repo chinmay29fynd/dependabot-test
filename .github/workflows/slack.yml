@@ -1,0 +1,37 @@
+name: Dependabot PR Alerts
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: dependabot-metadata
+        uses: dependabot/fetch-metadata@v2
+        
+      - name: Notify Slack about Dependabot alerts
+        if: steps.dependabot-metadata.outputs.alert-state == 'OPEN'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#test-dep-bot'
+          text: |
+            🚨 *Dependabot Security Alert*
+            
+            *Repository:* ${{ github.repository }}
+            *Alert State:* ${{ steps.dependabot-metadata.outputs.alert-state }}
+            *GHSA ID:* ${{ steps.dependabot-metadata.outputs.ghsa-id }}
+            *CVSS Score:* ${{ steps.dependabot-metadata.outputs.cvss }}
+            *Dependency Names:* ${{ steps.dependabot-metadata.outputs.dependency-names }}
+            
+            <${{ github.event.pull_request.html_url }}|View Dependabot PR>
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
