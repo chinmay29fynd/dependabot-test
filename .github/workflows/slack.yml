@@ -123,16 +123,20 @@ jobs:
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + PACKAGE_COUNT))
                 ALL_VULNERABILITIES="$ALL_VULNERABILITIES$PACKAGE_VULNERABILITIES"
                 
-                
                 if [ ! -z "$PACKAGE_GHSA_IDS" ]; then
-                    BULLET_GHSAS=$(echo "$PACKAGE_GHSA_IDS" | tr ',' '\n' | sed 's/^/   • /')
-                    ALL_GHSA_IDS="$ALL_GHSA_IDS"$'\n'"$BULLET_GHSAS"
+                  if [ ! -z "$ALL_GHSA_IDS" ]; then
+                    ALL_GHSA_IDS="$ALL_GHSA_IDS, $PACKAGE_GHSA_IDS"
+                  else
+                    ALL_GHSA_IDS="$PACKAGE_GHSA_IDS"
+                  fi
                 fi
-
                 
                 if [ ! -z "$PACKAGE_CVSS_SCORES" ]; then
-                    BULLET_CVSS_SCORES=$(echo "$PACKAGE_CVSS_SCORES" | tr ',' '\n' | sed 's/^/   • /')
-                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES"$'\n'"$BULLET_CVSS_SCORES"
+                  if [ ! -z "$ALL_CVSS_SCORES" ]; then
+                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES, $PACKAGE_CVSS_SCORES"
+                  else
+                    ALL_CVSS_SCORES="$PACKAGE_CVSS_SCORES"
+                  fi
                 fi
                 
                 echo "Found $PACKAGE_COUNT vulnerabilities for package: $PACKAGE"
@@ -179,8 +183,8 @@ jobs:
             
             *🛡️ Vulnerabilities This PR Fixes:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && '*GHSA IDs:*\n' }}${{ steps.pr-vulnerabilities.outputs.ghsa-ids || '• GHSA IDs: Not available' }}
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && '*CVSS Scores:*\n' }}${{ steps.pr-vulnerabilities.outputs.cvss-scores || '• CVSS Scores: Not available' }}
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && '*GHSA IDs:*\n' }}${{ steps.pr-vulnerabilities.outputs.ghsa-ids && steps.pr-vulnerabilities.outputs.ghsa-ids.replace(', ', '\n• ') || '• GHSA IDs: Not available' }}
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && '*CVSS Scores:*\n' }}${{ steps.pr-vulnerabilities.outputs.cvss-scores && steps.pr-vulnerabilities.outputs.cvss-scores.replace(', ', '\n• ') || '• CVSS Scores: Not available' }}
             
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
