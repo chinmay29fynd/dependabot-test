@@ -173,7 +173,6 @@ jobs:
             ${{ steps.dependabot-metadata.outputs.dependency-names }}
             
             *🔧 Update Details:*
-            • *Type:* ${{ steps.dependabot-metadata.outputs.dependency-type }}
             • *Update Type:* ${{ steps.dependabot-metadata.outputs.update-type || 'Version update' }}
             • *Package Ecosystem:* ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
             • *Directory:* ${{ steps.dependabot-metadata.outputs.directory }}
@@ -187,8 +186,6 @@ jobs:
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
             
             ${{ steps.pr-vulnerabilities.outputs.ghsa-ids }}
-            
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('• *CVSS Scores:* {0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '• *CVSS Scores:* Not available' }}
             
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
