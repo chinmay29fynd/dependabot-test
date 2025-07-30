@@ -44,7 +44,8 @@ jobs:
             echo "ghsa-ids=$GHSA_ID" >> $GITHUB_OUTPUT
             echo "cvss-scores=$CVSS_SCORE" >> $GITHUB_OUTPUT
             echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
-            echo "• $CVSS_SCORE/10: Security vulnerability ($GHSA_ID)" >> $GITHUB_OUTPUT
+            echo "• CVSS v2: $CVSS_SCORE/10 (Medium severity)" >> $GITHUB_OUTPUT
+            echo "• Note: GitHub UI shows CVSS v3.1: 2.3/10 (Low severity)" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
             echo "Found 1 vulnerability from dependabot metadata"
           else
