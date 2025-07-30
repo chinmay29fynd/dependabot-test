@@ -113,8 +113,8 @@ jobs:
                 # Count vulnerabilities for this package
                 PACKAGE_COUNT=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.severity' | wc -l)
                 
-                # Get GHSA IDs for this package
-                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | tr '\n' ', ' | sed 's/,$//')
+                # Get GHSA IDs for this package with hyperlinks
+                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '"<https://github.com/${{ github.repository }}/security/dependabot/\(.number)|\(.security_advisory.ghsa_id)>"' | tr '\n' ', ' | sed 's/,$//')
                 
                 # Get CVSS scores for this package with context
                 PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '"\(.security_advisory.ghsa_id): \(.security_advisory.cvss.score)/10"' | tr '\n' ', ' | sed 's/,$//')
