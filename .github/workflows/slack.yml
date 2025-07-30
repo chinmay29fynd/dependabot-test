@@ -113,39 +113,46 @@ jobs:
                 # Count vulnerabilities for this package
                 PACKAGE_COUNT=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.severity' | wc -l)
                 
-                # Get GHSA IDs for this package - format as bullet points
-                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | sed 's/^/• /' | tr '\n' '\n')
+                # Get GHSA IDs for this package - without bullet points for output
+                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id')
                 
-                # Get CVSS scores for this package - format as bullet points
-                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score' | sed 's/^/• /' | tr '\n' '\n')
+                # Get CVSS scores for this package - without bullet points for output
+                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score')
                 
                 # Add to totals
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + PACKAGE_COUNT))
                 ALL_VULNERABILITIES="$ALL_VULNERABILITIES$PACKAGE_VULNERABILITIES"
                 
                 if [ ! -z "$PACKAGE_GHSA_IDS" ]; then
-                  if [ ! -z "$ALL_GHSA_IDS" ]; then
-                    ALL_GHSA_IDS="$ALL_GHSA_IDS$PACKAGE_GHSA_IDS"
-                  else
-                    ALL_GHSA_IDS="$PACKAGE_GHSA_IDS"
+                  # Fix YAML lint errors: ensure all shell code is on a single line and avoid multiline implicit keys
+
+                  if [ ! -z "$PACKAGE_GHSA_IDS" ]; then
+                    if [ ! -z "$ALL_GHSA_IDS" ]; then
+                      ALL_GHSA_IDS="$ALL_GHSA_IDS $PACKAGE_GHSA_IDS"
+                    else
+                      ALL_GHSA_IDS="$PACKAGE_GHSA_IDS"
+                    fi
                   fi
-                fi
-                
-                if [ ! -z "$PACKAGE_CVSS_SCORES" ]; then
-                  if [ ! -z "$ALL_CVSS_SCORES" ]; then
-                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES$PACKAGE_CVSS_SCORES"
-                  else
-                    ALL_CVSS_SCORES="$PACKAGE_CVSS_SCORES"
+
+                  if [ ! -z "$PACKAGE_CVSS_SCORES" ]; then
+                    if [ ! -z "$ALL_CVSS_SCORES" ]; then
+                      ALL_CVSS_SCORES="$ALL_CVSS_SCORES $PACKAGE_CVSS_SCORES"
+                    else
+                      ALL_CVSS_SCORES="$PACKAGE_CVSS_SCORES"
+                    fi
                   fi
-                fi
-                
-                echo "Found $PACKAGE_COUNT vulnerabilities for package: $PACKAGE"
+
+                  echo "Found $PACKAGE_COUNT vulnerabilities for package: $PACKAGE"
               fi
             done
-            
+
             echo "vulnerability-count=$TOTAL_VULNERABILITIES" >> $GITHUB_OUTPUT
-            echo "ghsa-ids=$ALL_GHSA_IDS" >> $GITHUB_OUTPUT
-            echo "cvss-scores=$ALL_CVSS_SCORES" >> $GITHUB_OUTPUT
+            echo "ghsa-ids<<EOF" >> $GITHUB_OUTPUT
+            echo "$ALL_GHSA_IDS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "cvss-scores<<EOF" >> $GITHUB_OUTPUT
+            echo "$ALL_CVSS_SCORES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
             echo "$ALL_VULNERABILITIES" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -183,13 +190,12 @@ jobs:
             
             *🛡️ Vulnerabilities This PR Fixes:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
-            
+
             ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && '*GHSA IDs:*' || '' }}
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids }}
-            
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('{0}', steps.pr-vulnerabilities.outputs.ghsa-ids) || '' }}
+
             ${{ steps.pr-vulnerabilities.outputs.cvss-scores && '*CVSS Scores:*' || '' }}
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores }}
-            
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('{0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
             
