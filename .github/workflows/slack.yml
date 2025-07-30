@@ -113,11 +113,11 @@ jobs:
                 # Count vulnerabilities for this package
                 PACKAGE_COUNT=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.severity' | wc -l)
                 
-                # Get GHSA IDs for this package - store without bullet points
-                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | tr '\n' '\n')
+                # Get GHSA IDs for this package
+                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | tr '\n' ', ' | sed 's/,$//')
                 
-                # Get CVSS scores for this package - store without bullet points
-                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score' | tr '\n' '\n')
+                # Get CVSS scores for this package
+                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score' | tr '\n' ', ' | sed 's/,$//')
                 
                 # Add to totals
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + PACKAGE_COUNT))
@@ -125,7 +125,7 @@ jobs:
                 
                 if [ ! -z "$PACKAGE_GHSA_IDS" ]; then
                   if [ ! -z "$ALL_GHSA_IDS" ]; then
-                    ALL_GHSA_IDS="$ALL_GHSA_IDS$PACKAGE_GHSA_IDS"
+                    ALL_GHSA_IDS="$ALL_GHSA_IDS, $PACKAGE_GHSA_IDS"
                   else
                     ALL_GHSA_IDS="$PACKAGE_GHSA_IDS"
                   fi
@@ -133,7 +133,7 @@ jobs:
                 
                 if [ ! -z "$PACKAGE_CVSS_SCORES" ]; then
                   if [ ! -z "$ALL_CVSS_SCORES" ]; then
-                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES$PACKAGE_CVSS_SCORES"
+                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES, $PACKAGE_CVSS_SCORES"
                   else
                     ALL_CVSS_SCORES="$PACKAGE_CVSS_SCORES"
                   fi
@@ -183,12 +183,8 @@ jobs:
             
             *🛡️ Vulnerabilities This PR Fixes:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
-            
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && '*GHSA IDs:*' || '' }}
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('{0}', steps.pr-vulnerabilities.outputs.ghsa-ids | split('\n') | map('• ' + .) | join('\n')) || '' }}
-            
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && '*CVSS Scores:*' || '' }}
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('{0}', steps.pr-vulnerabilities.outputs.cvss-scores | split('\n') | map('• ' + .) | join('\n')) || '' }}
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('• *GHSA IDs:* {0}', steps.pr-vulnerabilities.outputs.ghsa-ids) || '• *GHSA IDs:* Not available' }}
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('• *CVSS Scores:* {0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '• *CVSS Scores:* Not available' }}
             
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
@@ -201,4 +197,4 @@ jobs:
             
             <${{ github.event.pull_request.html_url }}|View Dependabot PR>
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
