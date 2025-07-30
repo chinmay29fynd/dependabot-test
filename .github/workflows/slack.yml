@@ -83,6 +83,12 @@ jobs:
             echo "• CVSS v2: $CVSS_SCORE/10 ($SEVERITY_V2 severity)" >> $GITHUB_OUTPUT
             echo "$CVSS_V3_INFO" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+            echo "ghsa-lines<<EOF" >> $GITHUB_OUTPUT
+            echo "* GHSA ID: $GHSA_ID" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "cvss-lines<<EOF" >> $GITHUB_OUTPUT
+            echo "* CVSS Score: $CVSS_SCORE" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             echo "Found 1 vulnerability from dependabot metadata"
           else
             # Fallback: Get Dependabot alerts for this repository
@@ -144,17 +150,31 @@ jobs:
             done
             
             echo "vulnerability-count=$TOTAL_VULNERABILITIES" >> $GITHUB_OUTPUT
-            echo "ghsa-ids=$ALL_GHSA_IDS" >> $GITHUB_OUTPUT
-            echo "cvss-scores=$ALL_CVSS_SCORES" >> $GITHUB_OUTPUT
             echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
             echo "$ALL_VULNERABILITIES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            
+            # Set ghsa-lines and cvss-lines for bullet formatting
+            echo "ghsa-lines<<EOF" >> $GITHUB_OUTPUT
+            if [ ! -z "$ALL_GHSA_IDS" ]; then
+              for GHSA in $(echo "$ALL_GHSA_IDS" | tr ',' '\n'); do
+                echo "* GHSA ID: $(echo $GHSA | xargs)" >> $GITHUB_OUTPUT
+              done
+            fi
+            echo "EOF" >> $GITHUB_OUTPUT
+            
+            echo "cvss-lines<<EOF" >> $GITHUB_OUTPUT
+            if [ ! -z "$ALL_CVSS_SCORES" ]; then
+              for CVSS in $(echo "$ALL_CVSS_SCORES" | tr ',' '\n'); do
+                echo "* CVSS Score: $(echo $CVSS | xargs)" >> $GITHUB_OUTPUT
+              done
+            fi
             echo "EOF" >> $GITHUB_OUTPUT
             
             echo "Found $TOTAL_VULNERABILITIES total vulnerabilities being fixed"
             echo "Vulnerability details:"
             echo "$ALL_VULNERABILITIES"
-          fi
-          
+
       - name: Notify Slack about Dependabot PR
         uses: 8398a7/action-slack@v3
         with:
@@ -177,16 +197,17 @@ jobs:
             • *Directory:* ${{ steps.dependabot-metadata.outputs.directory }}
             • *Target Branch:* ${{ steps.dependabot-metadata.outputs.target-branch }}
             
-            * Version Changes:*
+            *🔢 Version Changes:*
             • *From:* ${{ steps.dependabot-metadata.outputs.previous-version || 'N/A' }}
             • *To:* ${{ steps.dependabot-metadata.outputs.new-version || 'N/A' }}
             
             *🛡️ Vulnerabilities This PR Fixes:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('• *GHSA IDs:* {0}', steps.pr-vulnerabilities.outputs.ghsa-ids) || '• *GHSA IDs:* Not available' }}
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('• *CVSS Scores:* {0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '• *CVSS Scores:* Not available' }}
             
-            ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-lines }}
+            ${{ steps.pr-vulnerabilities.outputs.cvss-lines }}
+            
+            *📋 Vulnerability Details:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
             
             *📈 Compatibility:*
