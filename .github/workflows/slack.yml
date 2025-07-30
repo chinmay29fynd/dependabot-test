@@ -40,12 +40,44 @@ jobs:
           # If dependabot metadata found a security alert, use that
           if [ "$ALERT_STATE" = "OPEN" ] && [ ! -z "$GHSA_ID" ]; then
             echo "Using security alert from dependabot metadata"
+            
+            # Get detailed vulnerability info from GitHub API
+            VULN_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
+              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+            
+            # Extract CVSS v3.1 score if available
+            CVSS_V3_SCORE=$(echo "$VULN_RESPONSE" | jq -r --arg ghsa "$GHSA_ID" \
+              '.[] | select(.security_vulnerability.ghsa_id == $ghsa) | .security_vulnerability.cvss.score // "N/A"')
+            
+            # Determine severity based on CVSS v2 score
+            if [ "$CVSS_SCORE" -ge 7 ]; then
+              SEVERITY_V2="High"
+            elif [ "$CVSS_SCORE" -ge 4 ]; then
+              SEVERITY_V2="Medium"
+            else
+              SEVERITY_V2="Low"
+            fi
+            
+            # Determine severity based on CVSS v3.1 score
+            if [ "$CVSS_V3_SCORE" != "N/A" ] && [ "$CVSS_V3_SCORE" != "null" ]; then
+              if [ "$CVSS_V3_SCORE" -ge 7 ]; then
+                SEVERITY_V3="High"
+              elif [ "$CVSS_V3_SCORE" -ge 4 ]; then
+                SEVERITY_V3="Medium"
+              else
+                SEVERITY_V3="Low"
+              fi
+              CVSS_V3_INFO="• CVSS v3.1: $CVSS_V3_SCORE/10 ($SEVERITY_V3 severity)"
+            else
+              CVSS_V3_INFO="• CVSS v3.1: Not available"
+            fi
+            
             echo "vulnerability-count=1" >> $GITHUB_OUTPUT
             echo "ghsa-ids=$GHSA_ID" >> $GITHUB_OUTPUT
             echo "cvss-scores=$CVSS_SCORE" >> $GITHUB_OUTPUT
             echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
-            echo "• CVSS v2: $CVSS_SCORE/10 (Medium severity)" >> $GITHUB_OUTPUT
-            echo "• Note: GitHub UI shows CVSS v3.1: 2.3/10 (Low severity)" >> $GITHUB_OUTPUT
+            echo "• CVSS v2: $CVSS_SCORE/10 ($SEVERITY_V2 severity)" >> $GITHUB_OUTPUT
+            echo "$CVSS_V3_INFO" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
             echo "Found 1 vulnerability from dependabot metadata"
           else
