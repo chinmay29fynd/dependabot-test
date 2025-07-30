@@ -183,8 +183,12 @@ jobs:
             
             *🛡️ Vulnerabilities This PR Fixes:*
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
-            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('• *GHSA IDs:* {0}', steps.pr-vulnerabilities.outputs.ghsa-ids) || '• *GHSA IDs:* Not available' }}
-            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('• *CVSS Scores:* {0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '• *CVSS Scores:* Not available' }}
+            
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && '*GHSA IDs:*' || '' }}
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('{0}', steps.pr-vulnerabilities.outputs.ghsa-ids | split(', ') | map('• ' + .) | join('\n')) || '' }}
+            
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && '*CVSS Scores:*' || '' }}
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('{0}', steps.pr-vulnerabilities.outputs.cvss-scores | split(', ') | map('• ' + .) | join('\n')) || '' }}
             
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
             ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}

@@ -22,27 +22,138 @@ jobs:
           alert-lookup: true
           compat-lookup: true
           
-      - name: Get repository Dependabot alerts
-        id: security-alerts
+      - name: Get vulnerabilities this PR fixes
+        id: pr-vulnerabilities
         run: |
-          # Get all Dependabot alerts for this repository
-          ALERTS_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
-            "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+          # Get the package names being updated (split by comma if multiple)
+          PACKAGE_NAMES="${{ steps.dependabot-metadata.outputs.dependency-names }}"
           
-          # Count open alerts
-          OPEN_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | .security_vulnerability.severity' | wc -l)
+          # Check if dependabot metadata already found a security alert
+          ALERT_STATE="${{ steps.dependabot-metadata.outputs.alert-state }}"
+          GHSA_ID="${{ steps.dependabot-metadata.outputs.ghsa-id }}"
+          CVSS_SCORE="${{ steps.dependabot-metadata.outputs.cvss }}"
           
-          # Get alert details (first 3 alerts) - keep original line breaks
-          ALERT_DETAILS=$(echo "$ALERTS_RESPONSE" | jq -r '.[] | select(.state == "open") | "• \(.security_vulnerability.severity): \(.security_vulnerability.package.name) (\(.security_vulnerability.vulnerable_version_range))"' | head -3)
+          echo "Alert state from metadata: $ALERT_STATE"
+          echo "GHSA ID from metadata: $GHSA_ID"
+          echo "CVSS from metadata: $CVSS_SCORE"
           
-          echo "open-alerts-count=$OPEN_ALERTS" >> $GITHUB_OUTPUT
-          echo "alert-details<<EOF" >> $GITHUB_OUTPUT
-          echo "$ALERT_DETAILS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "Found $OPEN_ALERTS open Dependabot alerts"
-          echo "Alert details:"
-          echo "$ALERT_DETAILS"
+          # If dependabot metadata found a security alert, use that
+          if [ "$ALERT_STATE" = "OPEN" ] && [ ! -z "$GHSA_ID" ]; then
+            echo "Using security alert from dependabot metadata"
+            
+            # Get detailed vulnerability info from GitHub API
+            VULN_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
+              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+            
+            # Extract CVSS v3.1 score from the correct path in the API response
+            CVSS_V3_SCORE=$(echo "$VULN_RESPONSE" | jq -r --arg ghsa "$GHSA_ID" \
+              '.[] | select(.security_advisory.ghsa_id == $ghsa) | .security_advisory.cvss_severities.cvss_v3.score // empty')
+            
+            echo "Extracted CVSS v3.1 score: '$CVSS_V3_SCORE'"
+            
+            # Determine severity based on CVSS v2 score
+            if [ "$CVSS_SCORE" -ge 7 ]; then
+              SEVERITY_V2="High"
+            elif [ "$CVSS_SCORE" -ge 4 ]; then
+              SEVERITY_V2="Medium"
+            else
+              SEVERITY_V2="Low"
+            fi
+            
+            # Determine severity based on CVSS v3.1 score - improved null checking
+            if [ ! -z "$CVSS_V3_SCORE" ] && [ "$CVSS_V3_SCORE" != "null" ] && [ "$CVSS_V3_SCORE" != "N/A" ]; then
+              # Convert to integer for comparison
+              CVSS_V3_INT=$(echo "$CVSS_V3_SCORE" | bc -l | cut -d. -f1)
+              if [ "$CVSS_V3_INT" -ge 7 ]; then
+                SEVERITY_V3="High"
+              elif [ "$CVSS_V3_INT" -ge 4 ]; then
+                SEVERITY_V3="Medium"
+              else
+                SEVERITY_V3="Low"
+              fi
+              CVSS_V3_INFO="• CVSS v3.1: $CVSS_V3_SCORE/10 ($SEVERITY_V3 severity)"
+            else
+              CVSS_V3_INFO="• CVSS v3.1: Not available"
+            fi
+            
+            echo "vulnerability-count=1" >> $GITHUB_OUTPUT
+            echo "ghsa-ids=$GHSA_ID" >> $GITHUB_OUTPUT
+            echo "cvss-scores=$CVSS_SCORE" >> $GITHUB_OUTPUT
+            echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
+            echo "• CVSS v2: $CVSS_SCORE/10 ($SEVERITY_V2 severity)" >> $GITHUB_OUTPUT
+            echo "$CVSS_V3_INFO" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Found 1 vulnerability from dependabot metadata"
+          else
+            # Fallback: Get Dependabot alerts for this repository
+            ALERTS_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GIT_PAT }}" \
+              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+            
+            # Convert comma-separated package names to array and check each one
+            IFS=',' read -ra PACKAGE_ARRAY <<< "$PACKAGE_NAMES"
+            
+            ALL_VULNERABILITIES=""
+            TOTAL_VULNERABILITIES=0
+            ALL_GHSA_IDS=""
+            ALL_CVSS_SCORES=""
+            
+            for PACKAGE in "${PACKAGE_ARRAY[@]}"; do
+              # Trim whitespace
+              PACKAGE=$(echo "$PACKAGE" | xargs)
+              
+              # Get vulnerabilities for this specific package
+              PACKAGE_ALERTS=$(echo "$ALERTS_RESPONSE" | jq -r --arg pkg "$PACKAGE" \
+                '.[] | select(.security_vulnerability.package.name == $pkg and .state == "open")')
+              
+              if [ ! -z "$PACKAGE_ALERTS" ]; then
+                # Get vulnerability details for this package with better formatting
+                PACKAGE_VULNERABILITIES=$(echo "$PACKAGE_ALERTS" | jq -r \
+                  '"• \(.security_vulnerability.severity): \(.security_advisory.summary // "Security vulnerability") (\(.security_vulnerability.vulnerable_version_range) → \(.security_vulnerability.first_patched_version.identifier))"')
+                
+                # Count vulnerabilities for this package
+                PACKAGE_COUNT=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.severity' | wc -l)
+                
+                # Get GHSA IDs for this package
+                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | tr '\n' ', ' | sed 's/,$//')
+                
+                # Get CVSS scores for this package
+                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score' | tr '\n' ', ' | sed 's/,$//')
+                
+                # Add to totals
+                TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + PACKAGE_COUNT))
+                ALL_VULNERABILITIES="$ALL_VULNERABILITIES$PACKAGE_VULNERABILITIES"
+                
+                if [ ! -z "$PACKAGE_GHSA_IDS" ]; then
+                  if [ ! -z "$ALL_GHSA_IDS" ]; then
+                    ALL_GHSA_IDS="$ALL_GHSA_IDS, $PACKAGE_GHSA_IDS"
+                  else
+                    ALL_GHSA_IDS="$PACKAGE_GHSA_IDS"
+                  fi
+                fi
+                
+                if [ ! -z "$PACKAGE_CVSS_SCORES" ]; then
+                  if [ ! -z "$ALL_CVSS_SCORES" ]; then
+                    ALL_CVSS_SCORES="$ALL_CVSS_SCORES, $PACKAGE_CVSS_SCORES"
+                  else
+                    ALL_CVSS_SCORES="$PACKAGE_CVSS_SCORES"
+                  fi
+                fi
+                
+                echo "Found $PACKAGE_COUNT vulnerabilities for package: $PACKAGE"
+              fi
+            done
+            
+            echo "vulnerability-count=$TOTAL_VULNERABILITIES" >> $GITHUB_OUTPUT
+            echo "ghsa-ids=$ALL_GHSA_IDS" >> $GITHUB_OUTPUT
+            echo "cvss-scores=$ALL_CVSS_SCORES" >> $GITHUB_OUTPUT
+            echo "vulnerability-details<<EOF" >> $GITHUB_OUTPUT
+            echo "$ALL_VULNERABILITIES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            
+            echo "Found $TOTAL_VULNERABILITIES total vulnerabilities being fixed"
+            echo "Vulnerability details:"
+            echo "$ALL_VULNERABILITIES"
+          fi
           
       - name: Notify Slack about Dependabot PR
         uses: 8398a7/action-slack@v3
@@ -70,22 +181,20 @@ jobs:
             • *From:* ${{ steps.dependabot-metadata.outputs.previous-version || 'N/A' }}
             • *To:* ${{ steps.dependabot-metadata.outputs.new-version || 'N/A' }}
             
-            *🛡️ Security Information:*
-            ${{ steps.dependabot-metadata.outputs.alert-state == 'OPEN' && '🚨 *SECURITY ALERT DETECTED*' || '🛡️ *Security vulnerability fix*' }}
-            ${{ steps.dependabot-metadata.outputs.alert-state && format('• *Alert State:* {0}', steps.dependabot-metadata.outputs.alert-state) || '• *Alert State:* No direct security alert' }}
-            ${{ steps.dependabot-metadata.outputs.ghsa-id && format('• *GHSA ID:* {0}', steps.dependabot-metadata.outputs.ghsa-id) || '• *GHSA ID:* Not available' }}
-            ${{ steps.dependabot-metadata.outputs.cvss && steps.dependabot-metadata.outputs.cvss != '0' && format('• *CVSS Score:* {0}', steps.dependabot-metadata.outputs.cvss) || '• *CVSS Score:* Not available' }}
-            • *Open Dependabot Alerts in Repo:* ${{ steps.security-alerts.outputs.open-alerts-count }}
+            *🛡️ Vulnerabilities This PR Fixes:*
+            ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && format('🚨 *{0} vulnerabilities being fixed*', steps.pr-vulnerabilities.outputs.vulnerability-count) || '🛡️ *No direct vulnerabilities detected*' }}
+            ${{ steps.pr-vulnerabilities.outputs.ghsa-ids && format('• *GHSA IDs:* {0}', steps.pr-vulnerabilities.outputs.ghsa-ids) || '• *GHSA IDs:* Not available' }}
+            ${{ steps.pr-vulnerabilities.outputs.cvss-scores && format('• *CVSS Scores:* {0}', steps.pr-vulnerabilities.outputs.cvss-scores) || '• *CVSS Scores:* Not available' }}
             
-            ${{ steps.security-alerts.outputs.open-alerts-count != '0' && '• *Active Alerts:*' || '' }}
-            ${{ steps.security-alerts.outputs.alert-details }}
+            ${{ steps.pr-vulnerabilities.outputs.vulnerability-count != '0' && '*Vulnerability Details:*' || '' }}
+            ${{ steps.pr-vulnerabilities.outputs.vulnerability-details }}
             
             *📈 Compatibility:*
             ${{ steps.dependabot-metadata.outputs.compatibility-score && steps.dependabot-metadata.outputs.compatibility-score != '0' && format('• *Compatibility Score:* {0}', steps.dependabot-metadata.outputs.compatibility-score) || '• *Compatibility Score:* Not available' }}
             
             *📋 Summary:*
-            Updates ${{ steps.dependabot-metadata.outputs.dependency-names }} to fix security vulnerabilities and improve dependency health.
+            Updates ${{ steps.dependabot-metadata.outputs.dependency-names }} to fix ${{ steps.pr-vulnerabilities.outputs.vulnerability-count }} security vulnerabilities and improve dependency health.
             
             <${{ github.event.pull_request.html_url }}|View Dependabot PR>
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
