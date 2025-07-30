@@ -106,18 +106,18 @@ jobs:
                 '.[] | select(.security_vulnerability.package.name == $pkg and .state == "open")')
               
               if [ ! -z "$PACKAGE_ALERTS" ]; then
-                # Get vulnerability details for this package
+                # Get vulnerability details for this package with better formatting
                 PACKAGE_VULNERABILITIES=$(echo "$PACKAGE_ALERTS" | jq -r \
-                  '"• \(.security_vulnerability.severity): \(.security_vulnerability.summary) (\(.security_vulnerability.vulnerable_version_range) → \(.security_vulnerability.first_patched_version))"')
+                  '"• \(.security_vulnerability.severity): \(.security_advisory.summary // "Security vulnerability") (\(.security_vulnerability.vulnerable_version_range) → \(.security_vulnerability.first_patched_version.identifier))"')
                 
                 # Count vulnerabilities for this package
                 PACKAGE_COUNT=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.severity' | wc -l)
                 
                 # Get GHSA IDs for this package
-                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.ghsa_id' | tr '\n' ', ' | sed 's/,$//')
+                PACKAGE_GHSA_IDS=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.ghsa_id' | tr '\n' ', ' | sed 's/,$//')
                 
                 # Get CVSS scores for this package
-                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_vulnerability.cvss.score' | tr '\n' ', ' | sed 's/,$//')
+                PACKAGE_CVSS_SCORES=$(echo "$PACKAGE_ALERTS" | jq -r '.security_advisory.cvss.score' | tr '\n' ', ' | sed 's/,$//')
                 
                 # Add to totals
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + PACKAGE_COUNT))
